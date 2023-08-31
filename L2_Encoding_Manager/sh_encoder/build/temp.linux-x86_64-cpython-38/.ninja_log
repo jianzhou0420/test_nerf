@@ -1,0 +1,5 @@
+# ninja log v5
+0	19340	1692288331107322660	/home/jian/nerf/torch-ngp/shencoder/build/temp.linux-x86_64-cpython-38/home/jian/nerf/torch-ngp/shencoder/src/bindings.o	e8e19abf7ddfd75d
+0	39000	1692288350771540074	/home/jian/nerf/torch-ngp/shencoder/build/temp.linux-x86_64-cpython-38/home/jian/nerf/torch-ngp/shencoder/src/shencoder.o	10c40eed27028ef7
+0	19447	1693291059247513938	/home/jian/nerf/mynerf/L2_Encoding_Manager/sh_encoder/build/temp.linux-x86_64-cpython-38/home/jian/nerf/mynerf/L2_Encoding_Manager/sh_encoder/src/bindings.o	e05d0a4d7c435705
+0	41864	1693291081676925063	/home/jian/nerf/mynerf/L2_Encoding_Manager/sh_encoder/build/temp.linux-x86_64-cpython-38/home/jian/nerf/mynerf/L2_Encoding_Manager/sh_encoder/src/shencoder.o	be553aebc0f192b6

@@ -1,0 +1,20 @@
+inherit_from: /home/jian/nerf/mynerf/Support_Config/replica.yaml
+data:
+  datadir: L1_Data_Manager/Replica/office0
+  output: Test_Output/Replica/office0
+  workers: 1
+
+grid:
+  bounds: [ [ -3,3 ],[ -4,2.5 ],[ -2,2.5 ] ]
+  input_dimension: 3
+  num_levels: 16
+  features: 28
+  max_entries: 524288 # 2^19
+  coarsest_resolution: 16
+  finest_resolution: 512
+
+Manager:
+  Data_Manager: Replica
+  Encoding_Manager: HashGrid
+  Network_Manager: BasicNeRF
+  LossOptim_Manager: 1 #TODO

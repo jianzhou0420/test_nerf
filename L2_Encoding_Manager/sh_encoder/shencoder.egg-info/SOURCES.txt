@@ -1,0 +1,9 @@
+setup.py
+/home/jian/nerf/mynerf/L2_Encoding_Manager/sh_encoder/src/bindings.cpp
+/home/jian/nerf/mynerf/L2_Encoding_Manager/sh_encoder/src/shencoder.cu
+/home/jian/nerf/torch-ngp/shencoder/src/bindings.cpp
+/home/jian/nerf/torch-ngp/shencoder/src/shencoder.cu
+shencoder.egg-info/PKG-INFO
+shencoder.egg-info/SOURCES.txt
+shencoder.egg-info/dependency_links.txt
+shencoder.egg-info/top_level.txt
