@@ -1,3 +1,10 @@
 # ninja log v5
-0	20833	1693446736819160096	/home/jian/nerf/mynerf/L2_Encoding_Manager/hash_grid/build/temp.linux-x86_64-cpython-38/home/jian/nerf/mynerf/L2_Encoding_Manager/hash_grid/src/bindings.o	f0ea525f78b0dfd7
-0	44255	1693446760254142507	/home/jian/nerf/mynerf/L2_Encoding_Manager/hash_grid/build/temp.linux-x86_64-cpython-38/home/jian/nerf/mynerf/L2_Encoding_Manager/hash_grid/src/hash_grid_accelerator.o	f7aeb0cfc6f55d11
+0	20104	1693723272072209926	/home/jian/nerf/mynerf/L2_Encoding_Manager/hash_grid/build/temp.linux-x86_64-cpython-38/home/jian/nerf/mynerf/L2_Encoding_Manager/hash_grid/src/bindings.o	f0ea525f78b0dfd7
+0	42280	1693723294257019723	/home/jian/nerf/mynerf/L2_Encoding_Manager/hash_grid/build/temp.linux-x86_64-cpython-38/home/jian/nerf/mynerf/L2_Encoding_Manager/hash_grid/src/hash_grid_accelerator.o	acaab6a00eaff72a
+6	41880	1693723719570125435	/home/jian/nerf/mynerf/L2_Encoding_Manager/hash_grid/build/temp.linux-x86_64-cpython-38/home/jian/nerf/mynerf/L2_Encoding_Manager/hash_grid/src/hash_grid_accelerator.o	acaab6a00eaff72a
+6	42009	1693723792464041307	/home/jian/nerf/mynerf/L2_Encoding_Manager/hash_grid/build/temp.linux-x86_64-cpython-38/home/jian/nerf/mynerf/L2_Encoding_Manager/hash_grid/src/hash_grid_accelerator.o	acaab6a00eaff72a
+6	42424	1693723973152527506	/home/jian/nerf/mynerf/L2_Encoding_Manager/hash_grid/build/temp.linux-x86_64-cpython-38/home/jian/nerf/mynerf/L2_Encoding_Manager/hash_grid/src/hash_grid_accelerator.o	acaab6a00eaff72a
+8	42406	1693724245042771380	/home/jian/nerf/mynerf/L2_Encoding_Manager/hash_grid/build/temp.linux-x86_64-cpython-38/home/jian/nerf/mynerf/L2_Encoding_Manager/hash_grid/src/hash_grid_accelerator.o	acaab6a00eaff72a
+7	43037	1693724386861864528	/home/jian/nerf/mynerf/L2_Encoding_Manager/hash_grid/build/temp.linux-x86_64-cpython-38/home/jian/nerf/mynerf/L2_Encoding_Manager/hash_grid/src/hash_grid_accelerator.o	acaab6a00eaff72a
+8	42308	1693724486719994767	/home/jian/nerf/mynerf/L2_Encoding_Manager/hash_grid/build/temp.linux-x86_64-cpython-38/home/jian/nerf/mynerf/L2_Encoding_Manager/hash_grid/src/hash_grid_accelerator.o	acaab6a00eaff72a
+6	43090	1693724583158284770	/home/jian/nerf/mynerf/L2_Encoding_Manager/hash_grid/build/temp.linux-x86_64-cpython-38/home/jian/nerf/mynerf/L2_Encoding_Manager/hash_grid/src/hash_grid_accelerator.o	acaab6a00eaff72a

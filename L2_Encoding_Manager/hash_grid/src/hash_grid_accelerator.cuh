@@ -79,27 +79,27 @@ __device__ uint32_t get_features_from_hash_table(const scalar_t *pos_grid, const
     const uint32_t primes[3] = {1, 2654435761, 805459861};
     uint32_t middle = 0;
     uint32_t this_idx = 0;
+    int F = 28;
+
 #pragma unroll
     for (uint32_t i = 0; i < D; ++i)
     {
         middle ^= pos_grid[i] * primes[i];
     }
-    this_idx = middle % T;
+    this_idx = middle % T *F;
 
     return this_idx;
 };
 
-template <typename scalar_t>
-__device__ uint32_t get_features_from_tile(const scalar_t *pos_grid, const uint32_t F)
+
+__device__ uint32_t get_features_from_tile(const uint32_t *pos_grid, const uint32_t F, const int *resolution_list)
 {
 
     // tile的话，直接计算head在哪就行了
     uint32_t this_idx = 0;
-#pragma unroll
-    for (uint32_t i = 0; i < 3; ++i)
-    {
-        this_idx += pos_grid[i] * F;
-    }
+
+
+    this_idx = (pos_grid[0]*(resolution_list[1]*resolution_list[2]) +pos_grid[1]*resolution_list[2]+ pos_grid[2])*F; //TODO: 
     return this_idx;
 };
 
@@ -109,4 +109,25 @@ __device__ inline at::Half atomicAdd(at::Half *address, at::Half val)
     // requires CUDA >= 10 and ARCH >= 70
     // this is very slow compared to float or __half2, never use it.
     // return atomicAdd(reinterpret_cast<__half*>(address), val);
+}
+
+template <typename T>
+__device__ void printTemplateVariable(const T &variable)
+{
+    if constexpr (sizeof(T) == sizeof(float))
+    {
+        printf("float value: %f\n", variable);
+    }
+    else if constexpr (sizeof(T) == sizeof(double))
+    {
+        printf("Double value: %f\n", variable);
+    }
+    else if constexpr (sizeof(T) == sizeof(const char *))
+    {
+        printf("String value: %s\n", variable);
+    }
+    else
+    {
+        printf("Unknown type\n");
+    }
 }

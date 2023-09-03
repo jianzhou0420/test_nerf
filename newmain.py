@@ -29,4 +29,4 @@ args.input_folder = 'datasets/replica'
 config = load_config(args.config)
 
 test = Tranner(config)
-test.train()
+test.test_grid()

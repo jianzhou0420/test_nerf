@@ -32,7 +32,6 @@ class _sh_encoder(Function):
             dy_dx = None
 
         # test
-        print(inputs.device,outputs.device)
         # /test
         _backend.sh_encode_forward(inputs, outputs, B, input_dim, degree, dy_dx)
 

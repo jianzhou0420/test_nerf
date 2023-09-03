@@ -32,7 +32,7 @@
 // #include "utils.cuh"
 #include <math.h>
 
-__global__ void get_xyz_kernel(const float *c2w, const float *direction, const float *depth, float *point2world, int N)
+__global__ void get_xyz_kernel(const float *c2w, const float *direction, const float *depth, float *point2world, const float *bound,int N)
 {
     int matrix_dim = 4;
     int batchID = blockDim.x * blockIdx.x + threadIdx.x; // blockDim.x=1024, blockIdx.x=0,1,2,...,N/1024
@@ -68,7 +68,9 @@ __global__ void get_xyz_kernel(const float *c2w, const float *direction, const f
         sum += c2w[row * matrix_dim + i] * camera_local_point[i];
 
     }
-    point2world[row] = sum;
+    point2world[row] = sum-bound[row];
+
+
     
 }
 
@@ -88,7 +90,7 @@ void checkCudaInfo(){
     std::cout << "Max blocks per grid: " << props.maxGridSize[0] << std::endl;
 }
 
-void get_xyz(const at::Tensor c2w, const at::Tensor direction, const at::Tensor depth, at::Tensor point2world)
+void get_xyz(const at::Tensor c2w, const at::Tensor direction, const at::Tensor depth, at::Tensor point2world,at::Tensor bound)
 { // TODO: Shape check  
     int device;
     cudaGetDevice(&device);
@@ -105,7 +107,7 @@ void get_xyz(const at::Tensor c2w, const at::Tensor direction, const at::Tensor 
 
     // print c2w
 
-    get_xyz_kernel<<<blocks_per_grid, threads_per_block>>>(c2w.data_ptr<float>(), direction.data_ptr<float>(), depth.data_ptr<float>(), point2world.data_ptr<float>(),N);
+    get_xyz_kernel<<<blocks_per_grid, threads_per_block>>>(c2w.data_ptr<float>(), direction.data_ptr<float>(), depth.data_ptr<float>(), point2world.data_ptr<float>(),bound.data_ptr<float>(),N);
 
     cudaDeviceSynchronize();
 

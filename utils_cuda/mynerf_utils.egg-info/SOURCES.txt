@@ -1,0 +1,7 @@
+setup.py
+/home/jian/nerf/mynerf/utils_cuda/src/bindings.cpp
+/home/jian/nerf/mynerf/utils_cuda/src/utils.cu
+mynerf_utils.egg-info/PKG-INFO
+mynerf_utils.egg-info/SOURCES.txt
+mynerf_utils.egg-info/dependency_links.txt
+mynerf_utils.egg-info/top_level.txt

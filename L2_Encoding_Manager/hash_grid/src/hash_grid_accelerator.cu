@@ -87,10 +87,16 @@ void grid_encode_forward(const at::Tensor input, const at::Tensor memory, const 
     // to make it more clear, we use some variables to represent the shape of the tensors instead of using size directly
     const uint32_t D = input.size(1);
     const uint32_t F = memory.size(1);
-    const uint32_t L = offset.size(0);
+    const uint32_t L = offset.size(0)-1;
     const uint32_t N = input.size(0);
-    printf("checkpoint1_grid_encode_forward");
+
     // T is the number of last offset
+
+    // test
+    // printf("memory %d %d\n", memory.size(0), memory.size(1));
+    // printf("memory shape %d\n", memory.dim());
+    // /test
+
 
     AT_DISPATCH_FLOATING_TYPES_AND_HALF(memory.scalar_type(), "grid_forward",
                                         ([&]
@@ -107,7 +113,7 @@ void grid_forward_wrapper_1(const float *input, const scalar_t *memory, const in
                             const uint32_t D, const uint32_t F, const uint32_t L, const uint32_t N, const uint32_t T)
 {
     //test
-    printf("checkpoint2_grid_forward_wrapper_1");
+
     // test
     switch (D)
     {
@@ -131,7 +137,7 @@ void grid_forward_wrapper_2(const float *input, const scalar_t *memory, const in
                             const int *resolution_list, const float *side_length_list,
                             const uint32_t F, const uint32_t L, const uint32_t N, const uint32_t T)
 {   // test
-    printf("checkpoint3_grid_forward_wrapper_2");
+
     // /test
     static constexpr const uint32_t num_max_threads_per_block = 1024;     // it is constrained by the GPU type, //TODO: create a function to calculate the number base on the GPU properties
     const uint32_t num_threads_divisions = N / num_max_threads_per_block + 1; // 这里也许有数值问题，+1为了保证富余。超出部分会在kernel中停止计算，所以不用担心。
@@ -148,8 +154,8 @@ void grid_forward_wrapper_2(const float *input, const scalar_t *memory, const in
                                                                              resolution_list, side_length_list,
                                                                              L, N, T); 
         break;
-    case 3:
-        kernel_grid_forward<scalar_t,D, 3><<<num_blocks, num_max_threads_per_block>>>(input, memory, offset, output,
+    case 28: // test 28
+        kernel_grid_forward<scalar_t,D, 28><<<num_blocks, num_max_threads_per_block>>>(input, memory, offset, output,
                                                                              resolution_list, side_length_list,
                                                                              L, N, T); 
         break;
@@ -163,19 +169,33 @@ __global__ void kernel_grid_forward(const float *__restrict__ input, const scala
                                     const int *__restrict__ resolution_list, const float *__restrict__ side_length_list,
                                     const uint32_t L, const uint32_t N, const uint32_t T)
 { // to minimize the computation, get more input{
+    // input: [N,D]
+    // memory_head: [offset[-1],F]
+    // offset: [L+1]
+    // output: [N,L,F]
+    
     uint32_t batchID = blockIdx.x * blockDim.x + threadIdx.x;
     const uint32_t levelID = blockIdx.y;
-    printf("checkpoint4_kernel_grid_forward");
-    // 保证不超出
+  
+    
     if (batchID >= N) return;
 
     // Step 1/5: locate, and define local containers
 
-    // test
+
 
     memory_head += offset[levelID] * F; // level head
     input += batchID * D;
-    output += batchID * levelID * F;
+    output += (batchID * L+levelID) * F;
+    resolution_list += levelID*3;
+
+    // test
+
+    // ID
+    // printf("batchID: %d, levelID: %d\n", batchID, levelID);
+
+    // /test
+
 
     // std::copy(input,input+D,pos); std is not commonly allowed in cuda runtime, as they have different memory allocation methods
     // instead, use the followings:
@@ -185,13 +205,13 @@ __global__ void kernel_grid_forward(const float *__restrict__ input, const scala
 
     // float result_features[F];
     float pos[D];
-    float pos_idx[D];
-    float pos_min_idx[D]; // the down left corner of the voxel
-    float pos_max_idx[D]; // the up right corner of the voxel
+    float pos_idx[D]; // yes it is index and it is float. to indicate the scale of the voxel it belongs to.
+    uint32_t pos_min_idx[D]; // the down left corner of the voxel
+    uint32_t pos_max_idx[D]; // the up right corner of the voxel
 
     // uint32_t corner_idx[8][3];
-    uint32_t features_result[F];
-    uint32_t frac[D];
+    scalar_t features_result[F]={0};
+    float frac[D]; // float, the same reason as pos_idx
 
 // get the index of Point.
 #pragma unroll
@@ -203,6 +223,16 @@ __global__ void kernel_grid_forward(const float *__restrict__ input, const scala
         pos_max_idx[i] = ceil(pos_idx[i]);
         frac[i] = pos_idx[i] - pos_min_idx[i];
     }
+    // test
+    //print all the pos
+    // printf("pos: %f %f %f\n", pos[0], pos[1], pos[2]);
+    // printf("pos_idx: %f %f %f\n", pos_idx[0], pos_idx[1], pos_idx[2]);
+    // printf("pos_min_idx: %d %d %d\n", pos_min_idx[0], pos_min_idx[1], pos_min_idx[2]);
+    // printf("pos_max_idx: %d %d %d\n", pos_max_idx[0], pos_max_idx[1], pos_max_idx[2]);
+    // printf("frac: %f %f %f\n", frac[0], frac[1], frac[2]);
+
+    // printf("side_length_list[levelID]: %f\n", side_length_list[levelID]);
+    // /test
 
     const uint32_t hashmap_size = offset[levelID + 1] - offset[levelID]; // how many entries in this level
     bool is_hash = false;
@@ -214,19 +244,21 @@ __global__ void kernel_grid_forward(const float *__restrict__ input, const scala
 // interpolation
 #pragma unroll
     for (uint32_t idx = 0; idx < (1 << D); idx++)
-    { // 循环2^D次，每次循环计算一个corner的feature
-        float w = 1;
+    {  //iterates over a range of values from 0 up to (2^D) - 1, each time calculate one vertex
+        float w=1; // for each vertex, it has separate weights for each dimension
         uint32_t pos_grid_local[D];
 
 #pragma unroll
-        for (uint32_t d = 0; d < D; d++)
+        for (uint32_t d = 0; d < D; d++) // this loop process each dimension
         {
+             //initialize each weight to 1
             // 循环对于每个维度循环一次，对应c000 = (1 - x_frac) * (1 - y_frac) * (1 - z_frac)这个
             // 那么如何知道此时是（1-x_frac） 还是（frac）呢？ 因为xyz每个位置要么是0要么是1，所以可以用位运算即可。3个位置，8个可能即为2^3。
-            // idx是1-8的数字。根据idx的二进制表示，可以知道xyz的位置对应的是0还是1，且循环不重复。
+            // idx是0-7的数字。根据idx的二进制表示，可以知道xyz的位置对应的是0还是1，且循环不重复。
             // 因此，如下判断就是用来idx这个三位二进制数的每一位是否为0，如果为0，那么就是1-frac，如果为1，那么就是frac
             if ((idx & (1 << d)) == 0)
-            {
+            {   
+                // /test
                 w *= 1 - frac[d];
                 pos_grid_local[d] = pos_min_idx[d]; // 一个是1-x,一个是x，因为越近数值越小，但权重越大.
             }
@@ -241,18 +273,24 @@ __global__ void kernel_grid_forward(const float *__restrict__ input, const scala
         // hash 与否只决定了如何提取features
         if (is_hash)
         {
-
             location = get_features_from_hash_table(pos_grid_local, D, F);
         }
         else
         {
-
-            location = get_features_from_tile(pos_grid_local, F);
+            location = get_features_from_tile(pos_grid_local, F, resolution_list);
         }
+
+
+        // test
+
+      
+  
+        // /test
+
 
 // writing to register (fast)
 #pragma unroll
-        for (uint32_t ch = 0; ch < F; ch++)
+        for (uint32_t ch = 0; ch < F; ch++) //each feature in one vertex share the same weight
         {
             features_result[ch] += w * memory_head[location + ch];
         }
@@ -266,8 +304,16 @@ __global__ void kernel_grid_forward(const float *__restrict__ input, const scala
     for (uint32_t ch = 0; ch < F; ch++)
     {
         output[ch] = features_result[ch];
+
+        // test
+        // printTemplateVariable(output[levelID*F+ch]);
+        // printTemplateVariable(doubleValue);
+        // printTemplateVariable(stringValue);
+        // printf("BatchID: %d, LevelID: %d, output[%d]=%f", batchID,levelID,ch, output[ch];
+        // printf("features_result[%d]=%f\n",ch,features_result[ch]);
+        // /test
     }
-    printf("checkpoint5_end");
+    // ok,Now except the hash part, the forward pass is valid
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -340,13 +386,13 @@ void grid_backward_wrapper_1(const scalar_t *grad,
                                    F, L, N, T);
         break;
     case 2:
-        grid_backward_wrapper_2<scalar_t,1>(grad,
+        grid_backward_wrapper_2<scalar_t,2>(grad,
                                    input, offset, new_memory_head,
                                    resolution_list, side_length_list,
                                    F, L, N, T);
         break;
     case 3:
-        grid_backward_wrapper_2<scalar_t,1>(grad,
+        grid_backward_wrapper_2<scalar_t,3>(grad,
                                    input, offset, new_memory_head,
                                    resolution_list, side_length_list,
                                    F, L, N, T);
@@ -367,7 +413,7 @@ void grid_backward_wrapper_2(const scalar_t *grad,
     const uint32_t num_threads_divisions = N / num_max_threads_per_block + 1; // 这里也许有数值问题，+1为了保证富余。超出部分会在kernel中停止计算，所以不用担心。
     const dim3 num_blocks = {(uint32_t)num_threads_divisions, (uint32_t)L, 1};
 
-    switch (D)
+    switch (F)
     {
     case 1:
         kernel_grid_backward<scalar_t,D, 1><<<num_blocks, num_max_threads_per_block>>>(grad,
@@ -380,8 +426,9 @@ void grid_backward_wrapper_2(const scalar_t *grad,
                                                                               input, offset, new_memory_head,
                                                                               resolution_list, side_length_list,
                                                                               L, N, T);
-    case 3:
-        kernel_grid_backward<scalar_t,D, 3><<<num_blocks, num_max_threads_per_block>>>(grad,
+        break;
+    case 28:
+        kernel_grid_backward<scalar_t,D, 28><<<num_blocks, num_max_threads_per_block>>>(grad,
                                                                               input, offset, new_memory_head,
                                                                               resolution_list, side_length_list,
                                                                               L, N, T);
@@ -396,31 +443,69 @@ __global__ void kernel_grid_backward(const scalar_t *__restrict__ grad, // grad 
                                      const int *__restrict__ resolution_list, const float *__restrict__ side_length_list,
                                      const uint32_t L, const uint32_t N, const uint32_t T)
 {
-    //
+    // assume we have total grad and we want to allocate it to each voxel, we can simply use the interpolation weights to do this.
+    // weight_for_each_voxel = weight_for_each_vertex * total_grad
+    // the weight for each voxel has been calculated in forward pass
+    // However, storing that weight means we need another [N,L,8]*float32 size momory.
+    // You can definitely scarify some memory to get a faster speed. wait. Is it realy wasting memoery? I don't know. that needs verriation.
 
-    const uint32_t batchID = blockIdx.x * blockDim.x + threadIdx.x;
+
+    // TODO: change the new_memory_head to grad_memory_head
+    // grad: [N,L*F] for instance, [816000,448] N=816000,L=16,F=28
+    // new_memory_head: [offser[-1],F]
+
+    // the features of one specific vertex share the same weight. so our kernel is invoked according to input, but not these features
+    // the logic of the function is as follows:
+    // 1. For each input and each level, calculate the 8 surrounding vertices
+    // 2. When iterting the 8 vertices, in each loop, calculate the weight of this specific vertex 
+    //    and atomicly add the 28 features's grad to the corresponding feature in the vertex. offcouse, we will divide the weight by the weight
+
+
+
+    uint32_t batchID = blockIdx.x * blockDim.x + threadIdx.x;
     const uint32_t levelID = blockIdx.y;
+
+    
+    
+
+    // /test
     // 保证不超出
     if (batchID >= N)
         return;
 
-    grad += (levelID * N + batchID) * F;
+    // Step 1/5: locate, and define local containers
+
+    // memory_head += offset[levelID] * F; // level head
     input += batchID * D;
-    new_memory_head += offset[levelID] * F; // Actually is the output, it is got from grid_embeddings=torch.zeros_like(embeddings)
+    new_memory_head += offset[levelID]*F;
+    grad+=batchID*L*F+levelID*F;
+    resolution_list+=levelID*3;
+
+    // printf("levelID%d \n",levelID);
+    // printf("offset%d \n",offset[levelID]);
+    // printf("F%d \n",F);
+
+    // test
+
+    // ID
+    // printf("batchID: %d, levelID: %d\n", batchID, levelID);
+
+    // /test
+
+    // std::copy(input,input+D,pos); std is not commonly allowed in cuda runtime, as they have different memory allocation methods
+    // instead, use the followings:
 
     // Step 2/5: Query: get the features of the voxel corners
     // first judge whether to tile or to hash
 
     // float result_features[F];
-    // Step 1/5: locate, and define local containers
     float pos[D];
-    float pos_idx[D];     // It indeed is a float. we use the float to find the upper and lower idx of the voxel it belongs to.
-    float pos_min_idx[D]; // the down left corner of the voxel
-    float pos_max_idx[D]; // the up right corner of the voxel
+    float pos_idx[D];        // yes it is index and it is float. to indicate the scale of the voxel it belongs to.
+    uint32_t pos_min_idx[D]; // the down left corner of the voxel
+    uint32_t pos_max_idx[D]; // the up right corner of the voxel
 
     // uint32_t corner_idx[8][3];
-    // uint32_t features_result[F];
-    uint32_t frac[D];
+    float frac[D]; // float, the same reason as pos_idx
 
 // get the index of Point.
 #pragma unroll
@@ -432,6 +517,16 @@ __global__ void kernel_grid_backward(const scalar_t *__restrict__ grad, // grad 
         pos_max_idx[i] = ceil(pos_idx[i]);
         frac[i] = pos_idx[i] - pos_min_idx[i];
     }
+    // test
+    // print all the pos
+    // printf("pos: %f %f %f\n", pos[0], pos[1], pos[2]);
+    // printf("pos_idx: %f %f %f\n", pos_idx[0], pos_idx[1], pos_idx[2]);
+    // printf("pos_min_idx: %d %d %d\n", pos_min_idx[0], pos_min_idx[1], pos_min_idx[2]);
+    // printf("pos_max_idx: %d %d %d\n", pos_max_idx[0], pos_max_idx[1], pos_max_idx[2]);
+    // printf("frac: %f %f %f\n", frac[0], frac[1], frac[2]);
+
+    // printf("side_length_list[levelID]: %f\n", side_length_list[levelID]);
+    // /test
 
     const uint32_t hashmap_size = offset[levelID + 1] - offset[levelID]; // how many entries in this level
     bool is_hash = false;
@@ -440,29 +535,32 @@ __global__ void kernel_grid_backward(const scalar_t *__restrict__ grad, // grad 
     else
         is_hash = false;
 
-    uint32_t grad_cur[D] = {0}; // fetch to register
-#pragma unroll
-    for (uint32_t c = 0; c < D; c++)
-    {
-        grad_cur[c] = grad[c];
-    }
-
-// interpolation //TODO: options to sacrify the memory to speed up, as the have already calculated the weights in the forward pass.
+// interpolation
 #pragma unroll
     for (uint32_t idx = 0; idx < (1 << D); idx++)
-    { // 循环2^D次，每次循环计算一个corner的feature
-        float w = 1;
+    {                // iterates over a range of values from 0 up to (2^D) - 1, each time calculate one vertex
+        float w = 1; // for each vertex, it has separate weights for each dimension
         uint32_t pos_grid_local[D];
+        // test
+        // printf("hello1\n");
+        // /test
 
 #pragma unroll
-        for (uint32_t d = 0; d < D; d++)
+            for (uint32_t d = 0; d < D; d++) // this loop process each dimension
         {
+            // test
+            // printf("D:%d", D);
+            // printf("hello\n");
+            // /test
+            // initialize each weight to 1
             // 循环对于每个维度循环一次，对应c000 = (1 - x_frac) * (1 - y_frac) * (1 - z_frac)这个
             // 那么如何知道此时是（1-x_frac） 还是（frac）呢？ 因为xyz每个位置要么是0要么是1，所以可以用位运算即可。3个位置，8个可能即为2^3。
-            // idx是1-8的数字。根据idx的二进制表示，可以知道xyz的位置对应的是0还是1，且循环不重复。
+            // idx是0-7的数字。根据idx的二进制表示，可以知道xyz的位置对应的是0还是1，且循环不重复。
             // 因此，如下判断就是用来idx这个三位二进制数的每一位是否为0，如果为0，那么就是1-frac，如果为1，那么就是frac
             if ((idx & (1 << d)) == 0)
             {
+                
+                // /test
                 w *= 1 - frac[d];
                 pos_grid_local[d] = pos_min_idx[d]; // 一个是1-x,一个是x，因为越近数值越小，但权重越大.
             }
@@ -473,43 +571,32 @@ __global__ void kernel_grid_backward(const scalar_t *__restrict__ grad, // grad 
             }
         }
 
-        uint32_t location = 0;
-        // hash 与否只决定了如何提取features
+        // For here, you have had the weight for a specific vertex.
+
+        // Locate the memory adress of the vertex 
+        uint32_t location;
         if (is_hash)
         {
-
             location = get_features_from_hash_table(pos_grid_local, D, F);
         }
         else
         {
-
-            location = get_features_from_tile(pos_grid_local, F);
+            location = get_features_from_tile(pos_grid_local, F, resolution_list);
         }
 
-        // atomicAdd for __half is slow (especially for large values), so we use __half2 if N_C % 2 == 0
-        // TODO: use float which is better than __half, if N_C % 2 != 0
-        if (std::is_same<scalar_t, at::Half>::value && D % 2 == 0)
-        {
-            #pragma unroll
-            for (uint32_t c = 0; c < D; c += 2)
-            {
-                // process two __half at once (by interpreting as a __half2)
-                __half2 v = {(__half)(w * grad_cur[c]), (__half)(w * grad_cur[c + 1])};
-                atomicAdd((__half2 *)&new_memory_head[location + c], v);
-            }
-            // float, or __half when N_C % 2 != 0 (which means C == 1)
-        }
-        else
-        {
-            #pragma unroll
-            for (uint32_t c = 0; c < D; c++)
-            {
-                atomicAdd(&new_memory_head[location + c], w * grad_cur[c]);
-            }
-        }
+        // Now, you have w:weight & location:memory address
 
-        // printf("[b=%d, l=%d] uint32_t %d, idx %d, w %f, val %f\n", b, level, idx, index, w, grid[index]);
+        for (uint32_t ch = 0; ch < F;ch++){
+
+            atomicAdd(&new_memory_head[location + ch], w * grad[ch]);
+        }
     }
+
+        // test
+
+        // /test
+
+
 }
 
 

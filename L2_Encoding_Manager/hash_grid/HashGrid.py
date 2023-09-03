@@ -46,18 +46,30 @@ class _grid_encode(Function):
         # if torch.is_autocast_enabled():
         #     memory=memory.to(torch.half)
         # TODO: align corners
-        output = torch.empty((L,N, F), device=inputs.device, dtype=memory.dtype)
+        output = torch.zeros((N,L, F), device=inputs.device, dtype=memory.dtype)
+        
+        # dy_dx=torch.zeros((N,L, 8), device=inputs.device, dtype=memory.dtype) # each point has interpolation weights for 8 points.
+        # the location of each vertex can be calculated by the location of the point and the side length of the voxel
 
         
-        # test
-        print(inputs.device,memory.device,offsets.device,output.device)
-        # /test
+        #continuous
+        inputs=inputs.contiguous()
+        memory=memory.contiguous()
+        offsets=offsets.contiguous()
+        resolution_list=resolution_list.contiguous()
+        side_length_list=side_length_list.contiguous()
+        output=output.contiguous()
+        # dy_dx=dy_dx.contiguous()
+        
+        
         _backend.grid_encode_forward(inputs, memory, offsets, output,
                                     resolution_list,side_length_list,
                                     T)
-        output = output.permute(1, 0, 2).reshape(N,L*F)
+        
+
         ctx.save_for_backward(inputs, memory, offsets, resolution_list,side_length_list)
         ctx.dims = [D,F,L,N,T]
+        
         return output
     
     
@@ -65,14 +77,20 @@ class _grid_encode(Function):
     #@once_differentiable
     @custom_bwd        
     def backward(ctx, grad):
+        # print(grad.shape)
         input, memory, offset, resolution_list,side_length_list= ctx.saved_tensors
         D,F,L,N,T=ctx.dims
-        grad=grad.view(N,L,F).permute(1,0,2).contiguous() # .continuous() is used to make the memory together
-        grad_memory = torch.empty_like(memory)
+        grad=grad.view(N,L,F) # .continuous() is used to make the memory together
+        grad_memory = torch.zeros_like(memory).to(memory.device)
+        grad_memory=grad_memory.contiguous()
+        
         _backend.grid_encode_backward(grad,
                                       input,memory,offset,grad_memory,
                                       resolution_list,side_length_list,
                                       T)
+        
+        # print(grad_memory.shape)
+        # print(grad_memory.max())
         # TODO: dy_dx
         return None,grad_memory,None,None,None,None
         
@@ -87,7 +105,7 @@ class HashGrid(nn.Module):
     def __init__(self):
         super().__init__()
         # follow the notation in the paper
-        print('yes')
+
 
         # Step 1: define some variables
         # hidden variables
@@ -102,8 +120,8 @@ class HashGrid(nn.Module):
         self.L = 16  # number of levels
         self.F = 28 # number of Features
         self.T = 524288  # max entries (hash table size)
-        self.N_min = 16
-        self.N_max = 512
+        self.N_min = 1
+        self.N_max = 6000
         self.b = math.exp((math.log(self.N_max) - math.log(self.N_min)) / (self.L - 1))
 
         # Step 2: define the levels and register them
@@ -134,14 +152,16 @@ class HashGrid(nn.Module):
 
         # Step 3: define the memory
         self.memory = nn.Parameter(torch.empty((this_offset, self.F)))  # last offset is the total number of entries
-
+        # /test
         # Step 4: initialize the memory
         self.reset_parameters()
 
     def reset_parameters(self):
         std = 1e-4
         self.memory.data.uniform_(-std, std)
-
+        # test this test is to make a settled output
+        # self.memory.data.fill_(std)
+        # /test
     def forward(self, input):
         '''
         # Now batch={dict:3}
@@ -153,13 +173,13 @@ class HashGrid(nn.Module):
         :param points_batch: Tensor(680*1200,3)
         :return:
         '''
-        print('yes')
+
         # TODO: map to 0-1
         num_point=list(input.shape[:-1])
         
         # TODO: make the to device more suitable
         
-        input=input.to('cuda')
+        # input=input.to('cuda')
         # self.memory=self.memory.to('cuda') because memory is already on cuda
         self.offsets=self.offsets.to('cuda')
         self.resolution_list=self.resolution_list.to('cuda')
@@ -171,12 +191,11 @@ class HashGrid(nn.Module):
         output=grid_encode(input,self.memory,self.offsets,
                            self.resolution_list,self.side_length_list,
                            self.T)
-        print('outputshape is',output.shape)
+
         
         # TODO: find the most efficient way to store for better query speed
         # now the shape is [816000,32]
 
-        print('yes')
         return output
 
 
