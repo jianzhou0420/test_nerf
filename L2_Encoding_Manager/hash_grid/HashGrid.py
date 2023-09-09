@@ -120,8 +120,8 @@ class HashGrid(nn.Module):
         self.L = 16  # number of levels
         self.F = 28 # number of Features
         self.T = 524288  # max entries (hash table size)
-        self.N_min = 1
-        self.N_max = 6000
+        self.N_min = 16
+        self.N_max = 2048
         self.b = math.exp((math.log(self.N_max) - math.log(self.N_min)) / (self.L - 1))
 
         # Step 2: define the levels and register them

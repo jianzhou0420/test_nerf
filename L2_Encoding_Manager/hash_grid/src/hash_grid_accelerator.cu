@@ -139,8 +139,9 @@ void grid_forward_wrapper_2(const float *input, const scalar_t *memory, const in
 {   // test
 
     // /test
-    static constexpr const uint32_t num_max_threads_per_block = 1024;     // it is constrained by the GPU type, //TODO: create a function to calculate the number base on the GPU properties
-    const uint32_t num_threads_divisions = N / num_max_threads_per_block + 1; // 这里也许有数值问题，+1为了保证富余。超出部分会在kernel中停止计算，所以不用担心。
+    static constexpr const uint32_t num_max_threads_per_block = 1024; // it is constrained by the GPU type, 
+    //TODO: create a function to calculate the number base on the GPU properties
+    const uint32_t num_threads_divisions = N / num_max_threads_per_block + 1; 
     const dim3 num_blocks = {(uint32_t)num_threads_divisions, (uint32_t)L, 1};
     switch (F)
     {
@@ -251,16 +252,21 @@ __global__ void kernel_grid_forward(const float *__restrict__ input, const scala
 #pragma unroll
         for (uint32_t d = 0; d < D; d++) // this loop process each dimension
         {
-             //initialize each weight to 1
-            // 循环对于每个维度循环一次，对应c000 = (1 - x_frac) * (1 - y_frac) * (1 - z_frac)这个
-            // 那么如何知道此时是（1-x_frac） 还是（frac）呢？ 因为xyz每个位置要么是0要么是1，所以可以用位运算即可。3个位置，8个可能即为2^3。
-            // idx是0-7的数字。根据idx的二进制表示，可以知道xyz的位置对应的是0还是1，且循环不重复。
-            // 因此，如下判断就是用来idx这个三位二进制数的每一位是否为0，如果为0，那么就是1-frac，如果为1，那么就是frac
+            // Initialize each weight to 1
+            // Loop for each dimension corresponding to c000 = (1 - x_frac) * (1 - y_frac) * (1 - z_frac)
+            // How do we determine if it's (1 - x_frac) or (x_frac)? 
+            // Since the position for xyz can either be 0 or 1, bit manipulation can be employed. 
+            // With three positions, we have 8 possibilities, i.e., 2^3.
+            // 'idx' is a number ranging from 0 to 7. 
+            // Based on the binary representation of 'idx', 
+            // we can ascertain if the position of xyz corresponds to 0 or 1 without any repetition.
+            // Thus, the following checks each bit of the three-bit binary number represented by 'idx'. 
+            // If a bit is 0, it corresponds to (1 - frac); if it's 1, it corresponds to frac.
             if ((idx & (1 << d)) == 0)
             {   
                 // /test
                 w *= 1 - frac[d];
-                pos_grid_local[d] = pos_min_idx[d]; // 一个是1-x,一个是x，因为越近数值越小，但权重越大.
+                pos_grid_local[d] = pos_min_idx[d];
             }
             else
             {

@@ -1,5 +1,6 @@
 from .hash_grid.HashGrid import HashGrid
-from .sh_encoder.sphere_harmonics import SHEncoder
+from .sh_encoder import SHEncoder
+
 
 def get_encoding(type):
     if type == 'HashGrid':
