@@ -1,13 +1,15 @@
 File architecture:
 
 Main Level:
-L1_1_Data_Manager
-L1_2_Encoding_Manager
-L1_3_Network_Manager
-L1_4_LossOptim_Manager
+L0_Traning_Manager
+L1_Data_Manager
+L2_Encoding_Manager
+L3_Network (TODO)
+
 
 Support:
 Support_Config
+
 
 Test:
 Test_Data

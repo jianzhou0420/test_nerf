@@ -40,7 +40,7 @@ __global__ void get_xyz_kernel(const float *c2w, const float *direction, const f
 
     // locate
     if (batchID >= N) return;
-    if (row >= matrix_dim) return; // the last term is 1 and we dont need it
+    if (row >= matrix_dim-1) return; // mind the row starts from 0
 
 
 
@@ -54,24 +54,19 @@ __global__ void get_xyz_kernel(const float *c2w, const float *direction, const f
     for (int i = 0; i < 3; i++)
     {
         camera_local_point[i] = direction[i] * depth[0];
-
     }
 
 
-    float sum = 0.0f;
-    //print 16 c2w
+    float sum = 0;
 
+#pragma unroll
+    for (int i = 0; i < matrix_dim; i++) 
 
-
-    for (int i = 0; i < matrix_dim; i++)
     {
         sum += c2w[row * matrix_dim + i] * camera_local_point[i];
-
     }
-    point2world[row] = sum-bound[row];
 
-
-    
+    point2world[row] = sum - bound[row];
 }
 
 
@@ -92,24 +87,24 @@ void checkCudaInfo(){
 
 void get_xyz(const at::Tensor c2w, const at::Tensor direction, const at::Tensor depth, at::Tensor point2world,at::Tensor bound)
 { // TODO: Shape check  
-    int device;
-    cudaGetDevice(&device);
+    // int device;
+    // cudaGetDevice(&device);
 
-    cudaDeviceProp props;
-    cudaGetDeviceProperties(&props, device);
+    // cudaDeviceProp props;
+    // cudaGetDeviceProperties(&props, device);
 
     int N=direction.size(0);
-    int threadsx=props.maxThreadsPerBlock/4;
+    int threadsx=1024/4;
 
     const dim3 threads_per_block(threadsx,4);         // it is constrained by the GPU type, //TODO: create a function to calculate the number base on the GPU properties
-    const int num_threads_divisions = N / threads_per_block.x + 11; // 这里也许有数值问题，+1为了保证富余。超出部分会在kernel中停止计算，所以不用担心。
+    const int num_threads_divisions = N / threads_per_block.x + 1; // 这里也许有数值问题，+1为了保证富余。超出部分会在kernel中停止计算，所以不用担心。
     const dim3  blocks_per_grid(num_threads_divisions, 1);
 
     // print c2w
 
     get_xyz_kernel<<<blocks_per_grid, threads_per_block>>>(c2w.data_ptr<float>(), direction.data_ptr<float>(), depth.data_ptr<float>(), point2world.data_ptr<float>(),bound.data_ptr<float>(),N);
 
-    cudaDeviceSynchronize();
+    // cudaDeviceSynchronize();
 
 }
 

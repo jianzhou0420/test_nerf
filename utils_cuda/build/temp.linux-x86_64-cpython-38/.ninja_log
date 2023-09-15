@@ -1,5 +1,6 @@
 # ninja log v5
-0	19390	1693465059680752613	/home/jian/nerf/mynerf/utils_cuda/build/temp.linux-x86_64-cpython-38/home/jian/nerf/mynerf/utils_cuda/src/bindings.o	67f4c2ca5382beee
-0	40799	1693465081101864467	/home/jian/nerf/mynerf/utils_cuda/build/temp.linux-x86_64-cpython-38/home/jian/nerf/mynerf/utils_cuda/src/utils.o	ff45c6cd09495a7c
-6	19582	1693727194540817829	/home/jian/nerf/mynerf/utils_cuda/build/temp.linux-x86_64-cpython-38/home/jian/nerf/mynerf/utils_cuda/src/bindings.o	67f4c2ca5382beee
-6	40876	1693727215841764165	/home/jian/nerf/mynerf/utils_cuda/build/temp.linux-x86_64-cpython-38/home/jian/nerf/mynerf/utils_cuda/src/utils.o	ff45c6cd09495a7c
+0	19219	1694165332438477466	/home/jian/nerf/mynerf/utils_cuda/build/temp.linux-x86_64-cpython-38/home/jian/nerf/mynerf/utils_cuda/src/bindings.o	67f4c2ca5382beee
+0	41588	1694165354814723506	/home/jian/nerf/mynerf/utils_cuda/build/temp.linux-x86_64-cpython-38/home/jian/nerf/mynerf/utils_cuda/src/utils.o	ff45c6cd09495a7c
+6	41750	1694165549944905140	/home/jian/nerf/mynerf/utils_cuda/build/temp.linux-x86_64-cpython-38/home/jian/nerf/mynerf/utils_cuda/src/utils.o	ff45c6cd09495a7c
+5	40725	1694165710754741291	/home/jian/nerf/mynerf/utils_cuda/build/temp.linux-x86_64-cpython-38/home/jian/nerf/mynerf/utils_cuda/src/utils.o	ff45c6cd09495a7c
+7	41744	1694165804455823009	/home/jian/nerf/mynerf/utils_cuda/build/temp.linux-x86_64-cpython-38/home/jian/nerf/mynerf/utils_cuda/src/utils.o	ff45c6cd09495a7c
